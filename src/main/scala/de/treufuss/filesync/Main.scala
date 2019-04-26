@@ -19,35 +19,35 @@ object Main extends App with Logging {
 
   val lorem = LoremIpsum.getInstance
 
-  def randomPath = {
+  def randomPathWithError = {
     val idSet = fs.idSet
-    fs.pathOf(idSet.iterator.drop(Random.nextInt(idSet.size)).next).get
+    fs.pathOf(idSet.iterator.drop(Random.nextInt(idSet.size)).next).get + (if(Random.nextDouble()<0.001) "a" else "")
   }
 
-  1 to 100 foreach  { _ =>
-    val path = randomPath
+  1 to 10000 foreach  { _ =>
+    val path = randomPathWithError
 
     fs.create(path,lorem.getWords(1))
   }
 
-  1 to 100 foreach { _ =>
-    val path = randomPath
+  1 to 50000 foreach { _ =>
+    val path = randomPathWithError
 
     fs.rename(path,lorem.getWords(1))
   }
 
-  1 to 500 foreach { _ =>
-    val source = randomPath
-    val dest = randomPath
+  1 to 50000 foreach { _ =>
+    val source = randomPathWithError
+    val dest = randomPathWithError
 
     fs.move(source, dest)
   }
 
-//  while (fs.idSet.size > 50) {
-//    val path = randomPath
-//
-//    fs.delete(path)
-//  }
+  while (fs.size > 100) {
+    val path = randomPathWithError
+
+    fs.delete(path)
+  }
 
   println(fs)
   println(fs.toJson)

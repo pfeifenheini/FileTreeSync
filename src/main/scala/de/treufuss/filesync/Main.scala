@@ -21,32 +21,44 @@ object Main extends App with Logging {
 
   def randomPathWithError = {
     val idSet = fs.idSet
-    fs.pathOf(idSet.iterator.drop(Random.nextInt(idSet.size)).next).get + (if(Random.nextDouble()<0.001) "a" else "")
+    fs.pathOf(idSet.iterator.drop(Random.nextInt(idSet.size)).next).get + (if (Random.nextDouble() < 0.001) "a" else "")
   }
 
-  1 to 10000 foreach  { _ =>
+  while (fs.size < 1000) {
     val path = randomPathWithError
 
-    fs.create(path,lorem.getWords(1))
+    fs.create(path, lorem.getWords(1))
   }
 
-  1 to 50000 foreach { _ =>
-    val path = randomPathWithError
+  1 to 100 foreach { _ =>
 
-    fs.rename(path,lorem.getWords(1))
-  }
+    Random.nextInt(4) match {
+      case 0 =>
+        while (fs.size < 1000) {
+          val path = randomPathWithError
 
-  1 to 50000 foreach { _ =>
-    val source = randomPathWithError
-    val dest = randomPathWithError
+          fs.create(path, lorem.getWords(1))
+        }
+      case 1 =>
+        1 to 5000 foreach { _ =>
+          val path = randomPathWithError
 
-    fs.move(source, dest)
-  }
+          fs.rename(path, lorem.getWords(1))
+        }
+      case 2 =>
+        1 to 5000 foreach { _ =>
+          val source = randomPathWithError
+          val dest = randomPathWithError
 
-  while (fs.size > 100) {
-    val path = randomPathWithError
+          fs.move(source, dest)
+        }
+      case 3 =>
+        while (fs.size > 500) {
+          val path = randomPathWithError
 
-    fs.delete(path)
+          fs.delete(path)
+        }
+    }
   }
 
   println(fs)

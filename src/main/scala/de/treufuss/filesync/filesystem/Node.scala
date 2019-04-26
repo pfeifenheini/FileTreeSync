@@ -11,12 +11,13 @@ class Node[C](val id: Int,
               var content: Option[C]) extends Logging {
 
   def find(pathSeq: Seq[String]): Option[Node[C]] = pathSeq match {
-    case head +: Seq() if head == name => Some(this)
+    case head +: Seq() =>
+      if (head == name) Some(this)
+      else None
     case head +: tail => children.find(_.name == tail.head) match {
       case None => None
       case Some(c) => c.find(tail)
     }
-    case _ => None
   }
 
   def pathNodes: Seq[Node[C]] = parent match {

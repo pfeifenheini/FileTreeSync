@@ -55,11 +55,11 @@ class Node[C](val id: Int,
 }
 
 object Node {
-  def apply[C](id: Int, name: String, parent: Node[C]) = new Node[C](
+  def apply[C](id: Int, name: String, parent: Node[C], content: Option[C] = None) = new Node[C](
     id,
     name,
     parent = Some(parent),
     children = ListBuffer.empty[Node[C]],
-    content = None
+    content = content
   )
 }

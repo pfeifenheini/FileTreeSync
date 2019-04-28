@@ -33,7 +33,7 @@ class FileSystem[C](config: FileSystemConf) extends Logging {
 
   def idSet: collection.Set[Int] = this.synchronized(nodeIndex.keySet)
 
-  def create(path: String, name: String): Boolean = this.synchronized {
+  def create(path: String, name: String, content: Option[C] = None): Boolean = this.synchronized {
     find(path) match {
       case None =>
         logger.error(s"cannot create, '$path' does not exist")
@@ -43,7 +43,7 @@ class FileSystem[C](config: FileSystemConf) extends Logging {
           logger.error(s"cannot create, name $name already exists at '$path'")
           false
         } else {
-          val newNode = Node(IDGenerator.nextID, name, parent)
+          val newNode = Node(IDGenerator.nextID, name, parent, content)
           parent.children += newNode
           nodeIndex.update(newNode.id, newNode)
           logger.info(s"create node '${pathOf(newNode)}'")
@@ -113,11 +113,11 @@ class FileSystem[C](config: FileSystemConf) extends Logging {
     }
   }
 
-  def edit(path: String, newContent: C): Boolean = this.synchronized {
+  def edit(path: String, newContent: Option[C]): Boolean = this.synchronized {
     find(path) match {
       case Some(node) =>
         logger.info(s"edit node '$path'")
-        node.content = Some(newContent)
+        node.content = newContent
         true
       case None =>
         logger.error(s"cannot edit, '$path' does not exist")

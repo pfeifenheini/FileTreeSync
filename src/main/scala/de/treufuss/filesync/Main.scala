@@ -50,7 +50,7 @@ object Main extends App with Logging {
     result
   }
 
-  val sizeLimit = 1000
+  val sizeLimit = 10000
   val operationLimit = 1000000
 
   while (fs.size < sizeLimit) {
@@ -58,7 +58,7 @@ object Main extends App with Logging {
 
 //    fs.create(path, lorem.getWords(1))
 
-    fsActor ! Create(path, lorem.getWords(1))
+    fsActor ! Create(path, lorem.getWords(1), Some(lorem.getWords(10, 20)))
   }
 
   timed {
@@ -69,11 +69,12 @@ object Main extends App with Logging {
       val path = randomPathWithError
       val dest = randomPathWithError
 
-      Random.nextInt(4) match {
+      Random.nextInt(5) match {
         case 0 => if (fs.size < sizeLimit) fsActor ! Create(path, lorem.getWords(1))
         case 1 => fsActor ! Rename(path, lorem.getWords(1))
         case 2 => fsActor ! Move(path, dest)
         case 3 => if (fs.size > sizeLimit / 2) fsActor ! Delete(path)
+        case 4 => fsActor ! Edit(path, Some(lorem.getWords(10, 20)))
       }
     }
   }
@@ -81,11 +82,11 @@ object Main extends App with Logging {
   println("seed: " + seed)
 
   logger.info("giving actor time to finish")
-  Thread.sleep(5000)
+  Thread.sleep(2000)
   logger.info("thats been enough time")
 
   system.terminate()
 
-  println(fs)
+//  println(fs)
   println(fs.toJson)
 }

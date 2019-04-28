@@ -26,7 +26,7 @@ object Main extends App with Logging {
     rootName = "root"
   )
 
-  val fs = new FileSystem[String](fsConf)
+  val fs = FileSystem[String](fsConf)
 
   val fsActor = system.actorOf(Props[FileSystemActor[String]](new FileSystemActor(fs)))
 
@@ -50,7 +50,7 @@ object Main extends App with Logging {
     result
   }
 
-  val sizeLimit = 10000
+  val sizeLimit = 1000
   val operationLimit = 1000000
 
   while (fs.size < sizeLimit) {

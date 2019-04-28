@@ -2,13 +2,38 @@ package de.treufuss.filesync.filesystem
 
 import org.apache.logging.log4j.scala.Logging
 
-import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
+import scala.collection.{Set, mutable}
 
 case class FileSystemConf(pathSeparator: Char,
                           rootName: String)
 
-class FileSystem[C](config: FileSystemConf) extends Logging {
+trait FileSystem[C] {
+
+  def size: Int
+
+  def idSet: Set[Int]
+
+  def create(path: String, name: String, content: Option[C]): Boolean
+
+  def delete(path: String): Boolean
+
+  def move(path: String, dest: String): Boolean
+
+  def edit(path: String, newContent: Option[C]): Boolean
+
+  def rename(path: String, newName: String): Boolean
+
+  def pathOf(id: Int): Option[String]
+
+  def toJson: String
+}
+
+object FileSystem {
+  def apply[C](conf: FileSystemConf): FileSystem[C] = new FileSystemImpl[C](conf)
+}
+
+class FileSystemImpl[C](config: FileSystemConf) extends FileSystem[C] with Logging {
 
   private object IDGenerator {
     private var lastID = 0
@@ -29,11 +54,11 @@ class FileSystem[C](config: FileSystemConf) extends Logging {
 
   private val nodeIndex = mutable.HashMap(0 -> root)
 
-  def size: Int = this.synchronized(nodeIndex.size)
+  override def size: Int = this.synchronized(nodeIndex.size)
 
-  def idSet: collection.Set[Int] = this.synchronized(nodeIndex.keySet)
+  override def idSet: Set[Int] = this.synchronized(nodeIndex.keySet)
 
-  def create(path: String, name: String, content: Option[C] = None): Boolean = this.synchronized {
+  override def create(path: String, name: String, content: Option[C] = None): Boolean = this.synchronized {
     find(path) match {
       case None =>
         logger.error(s"cannot create, '$path' does not exist")
@@ -61,7 +86,7 @@ class FileSystem[C](config: FileSystemConf) extends Logging {
     nodeIndex.remove(toDelete.id)
   }
 
-  def delete(path: String): Boolean = this.synchronized {
+  override def delete(path: String): Boolean = this.synchronized {
     find(path) match {
       case None =>
         logger.error(s"cannot delete, '$path' does not exist")
@@ -79,7 +104,7 @@ class FileSystem[C](config: FileSystemConf) extends Logging {
     }
   }
 
-  def move(source: String, dest: String): Boolean = this.synchronized {
+  override def move(source: String, dest: String): Boolean = this.synchronized {
     (find(source), find(dest)) match {
       case (None, _) =>
         logger.error(s"cannot move, source '$source' does not exist")
@@ -113,7 +138,7 @@ class FileSystem[C](config: FileSystemConf) extends Logging {
     }
   }
 
-  def edit(path: String, newContent: Option[C]): Boolean = this.synchronized {
+  override def edit(path: String, newContent: Option[C]): Boolean = this.synchronized {
     find(path) match {
       case Some(node) =>
         logger.info(s"edit node '$path'")
@@ -125,7 +150,7 @@ class FileSystem[C](config: FileSystemConf) extends Logging {
     }
   }
 
-  def rename(path: String, newName: String): Boolean = this.synchronized {
+  override def rename(path: String, newName: String): Boolean = this.synchronized {
 
     if (newName == "") {
       logger.error("cannot rename, name cannot be empty string")
@@ -167,14 +192,14 @@ class FileSystem[C](config: FileSystemConf) extends Logging {
 
   private def pathOf(node: Node[C]): String = node.pathNodes.map(_.name).mkString(config.pathSeparator.toString)
 
-  def pathOf(id: Int): Option[String] = this.synchronized {
+  override def pathOf(id: Int): Option[String] = this.synchronized {
     find(id) match {
       case Some(node) => Some(pathOf(node))
       case None => None
     }
   }
 
-  def toJson: String = this.synchronized(root.toJson)
+  override def toJson: String = this.synchronized(root.toJson)
 
   override def toString: String = root.nodesPreOrder.map(node => pathOf(node) + " " + node.content.getOrElse("").toString).mkString("\n")
 }

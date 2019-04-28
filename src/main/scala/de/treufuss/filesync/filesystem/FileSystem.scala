@@ -5,6 +5,9 @@ import org.apache.logging.log4j.scala.Logging
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 
+case class FileSystemConf(pathSeparator: Char,
+                          rootName: String)
+
 class FileSystem[C](config: FileSystemConf) extends Logging {
 
   private object IDGenerator {
@@ -26,25 +29,27 @@ class FileSystem[C](config: FileSystemConf) extends Logging {
 
   private val nodeIndex = mutable.HashMap(0 -> root)
 
-  def size: Int = nodeIndex.size
+  def size: Int = this.synchronized(nodeIndex.size)
 
-  def idSet: collection.Set[Int] = nodeIndex.keySet
+  def idSet: collection.Set[Int] = this.synchronized(nodeIndex.keySet)
 
-  def create(path: String, name: String): Boolean = find(path) match {
-    case None =>
-      logger.error(s"cannot create, '$path' does not exist")
-      false
-    case Some(parent) =>
-      if (parent.children.exists(_.name == name)) {
-        logger.error(s"cannot create, name $name already exists at '$path'")
+  def create(path: String, name: String): Boolean = this.synchronized {
+    find(path) match {
+      case None =>
+        logger.error(s"cannot create, '$path' does not exist")
         false
-      } else {
-        val newNode = Node(IDGenerator.nextID, name, parent)
-        parent.children += newNode
-        nodeIndex.update(newNode.id, newNode)
-        logger.info(s"create node '${pathOf(newNode)}'")
-        true
-      }
+      case Some(parent) =>
+        if (parent.children.exists(_.name == name)) {
+          logger.error(s"cannot create, name $name already exists at '$path'")
+          false
+        } else {
+          val newNode = Node(IDGenerator.nextID, name, parent)
+          parent.children += newNode
+          nodeIndex.update(newNode.id, newNode)
+          logger.info(s"create node '${pathOf(newNode)}'")
+          true
+        }
+    }
   }
 
   private def deleteRecursive(toDelete: Node[C]): Unit = {
@@ -56,7 +61,7 @@ class FileSystem[C](config: FileSystemConf) extends Logging {
     nodeIndex.remove(toDelete.id)
   }
 
-  def delete(path: String): Boolean = {
+  def delete(path: String): Boolean = this.synchronized {
     find(path) match {
       case None =>
         logger.error(s"cannot delete, '$path' does not exist")
@@ -74,7 +79,7 @@ class FileSystem[C](config: FileSystemConf) extends Logging {
     }
   }
 
-  def move(source: String, dest: String): Boolean = {
+  def move(source: String, dest: String): Boolean = this.synchronized {
     (find(source), find(dest)) match {
       case (None, _) =>
         logger.error(s"cannot move, source '$source' does not exist")
@@ -108,17 +113,19 @@ class FileSystem[C](config: FileSystemConf) extends Logging {
     }
   }
 
-  def edit(path: String, newContent: C): Boolean = find(path) match {
-    case Some(node) =>
-      logger.info(s"edit node '$path'")
-      node.content = Some(newContent)
-      true
-    case None =>
-      logger.error(s"cannot edit, '$path' does not exist")
-      false
+  def edit(path: String, newContent: C): Boolean = this.synchronized {
+    find(path) match {
+      case Some(node) =>
+        logger.info(s"edit node '$path'")
+        node.content = Some(newContent)
+        true
+      case None =>
+        logger.error(s"cannot edit, '$path' does not exist")
+        false
+    }
   }
 
-  def rename(path: String, newName: String): Boolean = {
+  def rename(path: String, newName: String): Boolean = this.synchronized {
 
     if (newName == "") {
       logger.error("cannot rename, name cannot be empty string")
@@ -160,15 +167,14 @@ class FileSystem[C](config: FileSystemConf) extends Logging {
 
   private def pathOf(node: Node[C]): String = node.pathNodes.map(_.name).mkString(config.pathSeparator.toString)
 
-  def pathOf(id: Int): Option[String] = find(id) match {
-    case Some(node) => Some(pathOf(node))
-    case None => None
+  def pathOf(id: Int): Option[String] = this.synchronized {
+    find(id) match {
+      case Some(node) => Some(pathOf(node))
+      case None => None
+    }
   }
 
-  def toJson: String = root.toJson
+  def toJson: String = this.synchronized(root.toJson)
 
   override def toString: String = root.nodesPreOrder.map(node => pathOf(node) + " " + node.content.getOrElse("").toString).mkString("\n")
 }
-
-case class FileSystemConf(pathSeparator: Char,
-                          rootName: String)

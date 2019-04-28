@@ -1,14 +1,20 @@
 package de.treufuss.filesync
 
 import java.time.Duration
+import java.util.concurrent.TimeUnit
 
+import akka.actor.{ActorSystem, Props}
 import com.thedeanda.lorem.LoremIpsum
+import de.treufuss.filesync.filesystem.operations._
 import de.treufuss.filesync.filesystem.{FileSystem, FileSystemConf}
 import org.apache.logging.log4j.scala.Logging
 
+import scala.concurrent.{Await, duration}
 import scala.util.Random
 
 object Main extends App with Logging {
+
+  val system = ActorSystem("TheActorSystem")
 
   logger.info("Program started")
 
@@ -24,11 +30,15 @@ object Main extends App with Logging {
 
   val fs = new FileSystem[String](fsConf)
 
+  val fsActor = system.actorOf(Props[FileSystemActor[String]](new FileSystemActor(fs)))
+
+//  val fsActor = new FileSystemActor(fs)
+
   val lorem = new LoremIpsum(seed)
 
   def randomPathWithError = {
     val idSet = fs.idSet
-    fs.pathOf(idSet.iterator.drop(Random.nextInt(idSet.size)).next).get + (if (Random.nextDouble() < 0.001) "a" else "")
+    fs.pathOf(idSet.iterator.drop(Random.nextInt(idSet.size)).next).getOrElse("") + (if (Random.nextDouble() < 0.001) "a" else "")
   }
 
   def timed[R](block: => R): R = {
@@ -47,7 +57,9 @@ object Main extends App with Logging {
   while (fs.size < sizeLimit) {
     val path = randomPathWithError
 
-    fs.create(path, lorem.getWords(1))
+//    fs.create(path, lorem.getWords(1))
+
+    fsActor ! Create(path, lorem.getWords(1))
   }
 
   timed {
@@ -59,24 +71,18 @@ object Main extends App with Logging {
       val dest = randomPathWithError
 
       Random.nextInt(4) match {
-        case 0 =>
-          if (fs.size < sizeLimit) {
-            fs.create(path, lorem.getWords(1))
-          }
-        case 1 =>
-          fs.rename(path, lorem.getWords(1))
-        case 2 =>
-          if (!fs.move(path, dest)) fs.move(dest, path)
-        case 3 =>
-          if (fs.size > sizeLimit / 2) {
-            fs.delete(path)
-          }
+        case 0 => if (fs.size < sizeLimit) fsActor ! Create(path, lorem.getWords(1))
+        case 1 => fsActor ! Rename(path, lorem.getWords(1))
+        case 2 => fsActor ! Move(path, dest)
+        case 3 => if (fs.size > sizeLimit / 2) fsActor ! Delete(path)
       }
     }
   }
 
   println("seed: " + seed)
 
-  //  println(fs)
-  //  println(fs.toJson)
+  Await.ready(system.whenTerminated, duration.Duration(1, TimeUnit.MINUTES))
+
+  println(fs)
+  println(fs.toJson)
 }

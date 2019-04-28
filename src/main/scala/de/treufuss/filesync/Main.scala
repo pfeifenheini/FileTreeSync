@@ -8,7 +8,7 @@ import de.treufuss.filesync.filesystem.operations._
 import de.treufuss.filesync.filesystem.{FileSystem, FileSystemConf}
 import org.apache.logging.log4j.scala.Logging
 
-import scala.util.{Random, Try}
+import scala.util.Random
 
 object Main extends App with Logging {
 
@@ -34,9 +34,9 @@ object Main extends App with Logging {
 
   val lorem = new LoremIpsum(seed)
 
-  def randomPathWithError = {
+  def randomPathWithError = fs.synchronized {
     val idSet = fs.idSet
-    val index = Try(idSet.iterator.drop(Random.nextInt(idSet.size)).next).toOption.getOrElse(0)
+    val index = idSet.iterator.drop(Random.nextInt(idSet.size)).next
     fs.pathOf(index).getOrElse("") + (if (Random.nextDouble() < 0.001) "a" else "")
   }
 

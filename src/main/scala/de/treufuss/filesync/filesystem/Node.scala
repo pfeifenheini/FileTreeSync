@@ -11,12 +11,12 @@ class Node[C](val id: Int,
               val children: mutable.TreeMap[String, Node[C]],
               var content: Option[C]) extends Logging {
 
-  def find (nameSeq: Seq[String]): Option[Node[C]] = find(nameSeq.toList)
+  def find(nameSeq: Seq[String]): Option[Node[C]] = find(nameSeq.toList)
 
   def find(nameList: List[String]): Option[Node[C]] = nameList match {
-    case head :: Nil if head == name => Some(this)
-    case head :: tail => children.get(head).flatMap(_.find(tail))
-  }
+      case head :: Nil => if (head == name) Some(this) else None
+      case _ :: tail => children.get(tail.head).flatMap(_.find(tail))
+    }
 
   def pathNodes: Seq[Node[C]] = parent match {
     case None => Seq(this)

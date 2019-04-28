@@ -13,7 +13,7 @@ trait FileSystem[C] {
 
   def idSet: Set[Int]
 
-  def create(path: String, name: String, content: Option[C]): Boolean
+  def create(path: String, name: String, content: Option[C] = None): Boolean
 
   def delete(path: String): Boolean
 
@@ -172,7 +172,7 @@ class FileSystemImpl[C](config: FileSystemConf) extends FileSystem[C] with Loggi
 
   private def find(path: String): Option[Node[C]] = {
     val res = root.find(path.split(config.pathSeparator))
-    if (res.isEmpty) logger.warn(s"node '$path' does not exist")
+//    if (res.isEmpty) logger.warn(s"node '$path' does not exist")
     res
   }
 

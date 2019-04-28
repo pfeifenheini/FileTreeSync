@@ -2,17 +2,13 @@ package de.treufuss.filesync
 
 import java.time.Duration
 
-import akka.actor.{ActorSystem, Props}
 import com.thedeanda.lorem.LoremIpsum
-import de.treufuss.filesync.filesystem.operations._
 import de.treufuss.filesync.filesystem.{FileSystem, FileSystemConf}
 import org.apache.logging.log4j.scala.Logging
 
 import scala.util.Random
 
 object Main extends App with Logging {
-
-  val system = ActorSystem("TheActorSystem")
 
   logger.info("Program started")
 
@@ -27,10 +23,6 @@ object Main extends App with Logging {
   )
 
   val fs = FileSystem[String](fsConf)
-
-  val fsActor = system.actorOf(Props[FileSystemActor[String]](new FileSystemActor(fs)))
-
-//  val fsActor = new FileSystemActor(fs)
 
   val lorem = new LoremIpsum(seed)
 
@@ -58,7 +50,7 @@ object Main extends App with Logging {
 
 //    fs.create(path, lorem.getWords(1))
 
-    fsActor ! Create(path, lorem.getWords(1), Some(lorem.getWords(10, 20)))
+    fs.create(path, lorem.getWords(1), Some(lorem.getWords(10, 20)))
   }
 
   timed {
@@ -70,11 +62,11 @@ object Main extends App with Logging {
       val dest = randomPathWithError
 
       Random.nextInt(5) match {
-        case 0 => if (fs.size < sizeLimit) fsActor ! Create(path, lorem.getWords(1))
-        case 1 => fsActor ! Rename(path, lorem.getWords(1))
-        case 2 => fsActor ! Move(path, dest)
-        case 3 => if (fs.size > sizeLimit / 2) fsActor ! Delete(path)
-        case 4 => fsActor ! Edit(path, Some(lorem.getWords(10, 20)))
+        case 0 => if (fs.size < sizeLimit) fs.create(path, lorem.getWords(1), None)
+        case 1 => fs.rename(path, lorem.getWords(1))
+        case 2 => fs.move(path, dest)
+        case 3 => if (fs.size > sizeLimit / 2) fs.delete(path)
+        case 4 => fs.edit(path, Some(lorem.getWords(10, 20)))
       }
     }
   }
@@ -85,8 +77,5 @@ object Main extends App with Logging {
   Thread.sleep(2000)
   logger.info("thats been enough time")
 
-  system.terminate()
-
-//  println(fs)
   println(fs.toJson)
 }

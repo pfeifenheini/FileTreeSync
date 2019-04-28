@@ -2,22 +2,20 @@ package de.treufuss.filesync.filesystem
 
 import org.apache.logging.log4j.scala.Logging
 
-import scala.collection.mutable.ListBuffer
+import scala.collection.mutable
+
 
 class Node[C](val id: Int,
               var name: String,
               var parent: Option[Node[C]],
-              val children: ListBuffer[Node[C]],
+              val children: mutable.TreeMap[String, Node[C]],
               var content: Option[C]) extends Logging {
 
-  def find(pathSeq: Seq[String]): Option[Node[C]] = pathSeq match {
-    case head +: Seq() =>
-      if (head == name) Some(this)
-      else None
-    case head +: tail => children.find(_.name == tail.head) match {
-      case None => None
-      case Some(c) => c.find(tail)
-    }
+  def find (nameSeq: Seq[String]): Option[Node[C]] = find(nameSeq.toList)
+
+  def find(nameList: List[String]): Option[Node[C]] = nameList match {
+    case head :: Nil if head == name => Some(this)
+    case head :: tail => children.get(head).flatMap(_.find(tail))
   }
 
   def pathNodes: Seq[Node[C]] = parent match {
@@ -29,18 +27,18 @@ class Node[C](val id: Int,
     if (children.isEmpty)
       Seq(this)
     else
-      this +: children.sortWith((a, b) => a.name.compareTo(b.name) < 0).flatMap(_.nodesPreOrder)
+      this +: children.values.toSeq.flatMap(_.nodesPreOrder)
   }
 
   def nodesPostOrder: Seq[Node[C]] = {
     if (children.isEmpty)
       Seq(this)
     else
-      children.sortWith((a, b) => a.name.compareTo(b.name) < 0).flatMap(_.nodesPreOrder) :+ this
+      children.values.toSeq.flatMap(_.nodesPreOrder) :+ this
   }
 
   def toJson: String = {
-    val childrenArray = if (children.nonEmpty) ",\"children\":[" + children.map(_.toJson).mkString(",") + "]"
+    val childrenArray = if (children.nonEmpty) ",\"children\":[" + children.values.map(_.toJson).mkString(",") + "]"
     else ""
 
     val contentPara = content match {
@@ -55,11 +53,11 @@ class Node[C](val id: Int,
 }
 
 object Node {
-  def apply[C](id: Int, name: String, parent: Node[C], content: Option[C] = None) = new Node[C](
+  def apply[C](id: Int, name: String, parent: Option[Node[C]], content: Option[C] = None) = new Node[C](
     id,
     name,
-    parent = Some(parent),
-    children = ListBuffer.empty[Node[C]],
+    parent,
+    children = mutable.TreeMap.empty[String, Node[C]],
     content = content
   )
 }

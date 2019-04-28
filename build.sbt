@@ -14,9 +14,6 @@ libraryDependencies ++= Seq(
   "org.slf4j" % "slf4j-log4j12" % "1.7.25" % Test,
 
   // lorem ipsum generator
-  "com.thedeanda" % "lorem" % "2.1",
-
-  // akka actor framework
-  "com.typesafe.akka" %% "akka-actor" % "2.5.22"
+  "com.thedeanda" % "lorem" % "2.1"
 
 )

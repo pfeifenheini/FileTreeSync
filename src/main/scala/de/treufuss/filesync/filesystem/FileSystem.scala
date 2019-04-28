@@ -2,7 +2,6 @@ package de.treufuss.filesync.filesystem
 
 import org.apache.logging.log4j.scala.Logging
 
-import scala.collection.mutable.ListBuffer
 import scala.collection.{Set, mutable}
 
 case class FileSystemConf(pathSeparator: Char,
@@ -44,15 +43,14 @@ class FileSystemImpl[C](config: FileSystemConf) extends FileSystem[C] with Loggi
     }
   }
 
-  private val root: Node[C] = new Node[C](
+  private val root: Node[C] = Node.apply(
     id = 0,
     name = config.rootName,
     parent = None,
-    children = ListBuffer.empty[Node[C]],
     content = None
   )
 
-  private val nodeIndex = mutable.HashMap(0 -> root)
+  private val nodeIndex = mutable.TreeMap(0 -> root)
 
   override def size: Int = this.synchronized(nodeIndex.size)
 
@@ -64,26 +62,17 @@ class FileSystemImpl[C](config: FileSystemConf) extends FileSystem[C] with Loggi
         logger.error(s"cannot create, '$path' does not exist")
         false
       case Some(parent) =>
-        if (parent.children.exists(_.name == name)) {
+        if (parent.children.contains(name)) {
           logger.error(s"cannot create, name $name already exists at '$path'")
           false
         } else {
-          val newNode = Node(IDGenerator.nextID, name, parent, content)
-          parent.children += newNode
+          val newNode = Node(IDGenerator.nextID, name, Some(parent), content)
+          parent.children.update(name, newNode)
           nodeIndex.update(newNode.id, newNode)
           logger.info(s"create node '${pathOf(newNode)}'")
           true
         }
     }
-  }
-
-  private def deleteRecursive(toDelete: Node[C]): Unit = {
-    assert(toDelete.parent.nonEmpty, "trying to delete root node")
-
-    toDelete.children.foreach(deleteRecursive)
-    val siblings = toDelete.parent.get.children
-    siblings.remove(siblings.indexWhere(_.id == toDelete.id))
-    nodeIndex.remove(toDelete.id)
   }
 
   override def delete(path: String): Boolean = this.synchronized {
@@ -96,8 +85,9 @@ class FileSystemImpl[C](config: FileSystemConf) extends FileSystem[C] with Loggi
           case None =>
             logger.error("cannot delete root node")
             false
-          case Some(_) =>
-            deleteRecursive(toDelete)
+          case Some(parent) =>
+            toDelete.nodesPreOrder.map(_.id) foreach nodeIndex.remove
+            parent.children.remove(toDelete.name)
             logger.info(s"delete node '$path'")
             true
         }
@@ -122,14 +112,13 @@ class FileSystemImpl[C](config: FileSystemConf) extends FileSystem[C] with Loggi
           false
         }
         else
-          destNode.children.find(_.name == sourceNode.name) match {
+          destNode.children.get(sourceNode.name) match {
             case Some(_) =>
               logger.error(s"cannot move '$path' to '$dest', child with same name already exists")
               false
             case None =>
-              val removeFrom = sourceNode.parent.get.children
-              removeFrom.remove(removeFrom.indexWhere(_.id == sourceNode.id))
-              destNode.children += sourceNode
+              sourceNode.parent.get.children.remove(sourceNode.name)
+              destNode.children.update(sourceNode.name, sourceNode)
               sourceNode.parent = Some(destNode)
               logger.info(s"move node '$path' to '$dest'")
               true
@@ -167,7 +156,7 @@ class FileSystemImpl[C](config: FileSystemConf) extends FileSystem[C] with Loggi
           case None =>
             logger.error("cannot rename root node")
             false
-          case Some(parent) if parent.children.exists(collision => collision.name == newName && collision.id != node.id) =>
+          case Some(parent) if parent.children.contains(newName) =>
             logger.error(s"cannot rename '$path' to $newName, name already taken")
             false
           case _ =>

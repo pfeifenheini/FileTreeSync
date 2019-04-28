@@ -1,7 +1,6 @@
 package de.treufuss.filesync
 
 import java.time.Duration
-import java.util.concurrent.TimeUnit
 
 import akka.actor.{ActorSystem, Props}
 import com.thedeanda.lorem.LoremIpsum
@@ -9,8 +8,7 @@ import de.treufuss.filesync.filesystem.operations._
 import de.treufuss.filesync.filesystem.{FileSystem, FileSystemConf}
 import org.apache.logging.log4j.scala.Logging
 
-import scala.concurrent.{Await, duration}
-import scala.util.Random
+import scala.util.{Random, Try}
 
 object Main extends App with Logging {
 
@@ -38,7 +36,8 @@ object Main extends App with Logging {
 
   def randomPathWithError = {
     val idSet = fs.idSet
-    fs.pathOf(idSet.iterator.drop(Random.nextInt(idSet.size)).next).getOrElse("") + (if (Random.nextDouble() < 0.001) "a" else "")
+    val index = Try(idSet.iterator.drop(Random.nextInt(idSet.size)).next).toOption.getOrElse(0)
+    fs.pathOf(index).getOrElse("") + (if (Random.nextDouble() < 0.001) "a" else "")
   }
 
   def timed[R](block: => R): R = {
@@ -81,7 +80,11 @@ object Main extends App with Logging {
 
   println("seed: " + seed)
 
-  Await.ready(system.whenTerminated, duration.Duration(1, TimeUnit.MINUTES))
+  logger.info("giving actor time to finish")
+  Thread.sleep(5000)
+  logger.info("thats been enough time")
+
+  system.terminate()
 
   println(fs)
   println(fs.toJson)

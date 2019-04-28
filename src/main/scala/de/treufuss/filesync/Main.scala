@@ -24,10 +24,21 @@ object Main extends App with Logging {
   def miniTest = {
 
     val fs = FileSystem[String](fsConf)
-
-    fs.create("root", "a")
-    fs.create("root", "b")
-    fs.create("root/a", "c")
+    println(fs)
+    fs.create("root", "a", "First Node")
+    println(fs)
+    fs.create("root", "b", "Second Node")
+    println(fs)
+    fs.create("root/a", "c", "Third Node")
+    println(fs)
+    fs.move("root/a/c", "root/b")
+    println(fs)
+    fs.rename("root/b/c", "d")
+    println(fs)
+    fs.edit("root/b/d", "hallo welt")
+    println(fs)
+    fs.delete("root/b")
+    println(fs)
 
   }
 
@@ -44,10 +55,72 @@ object Main extends App with Logging {
 
     val lorem = new LoremIpsum(seed)
 
+    val sizeLimit = 100000
+    val operationLimit = 1000000
+
+    var createIteration = 0
+
+    println(s"fill file system with $sizeLimit nodes")
+    while (fs.size < sizeLimit) {
+
+      if (createIteration % (operationLimit / 10) == 0) println(createIteration.toDouble / sizeLimit * 100 + "%")
+
+      val path = randomFastPath
+
+      fs.create(path, lorem.getWords(1), Some(lorem.getWords(10, 20)))
+
+      createIteration += 1
+    }
+
+    println(s"benchmarking $operationLimit operations")
+
+    timed {
+      var successCounter = 0
+      1 to operationLimit foreach { iteration =>
+
+        if (iteration % (operationLimit / 10) == 0) println(iteration.toDouble / operationLimit * 100 + "%")
+
+        val path = randomFastPathWithError
+        val dest = randomFastPathWithError
+
+        Random.nextInt(5) match {
+//          case 0 => if (fs.size < sizeLimit) fs.create(path, lorem.getWords(1), None)
+          case 1 => if (fs.rename(path, lorem.getWords(1))) successCounter += 1
+          case 2 => if (fs.move(path, dest)) successCounter += 1
+//          case 3 => if (fs.size > sizeLimit / 2) fs.delete(path)
+          case 4 => if (fs.edit(path, Some(lorem.getWords(10, 20)))) successCounter += 1
+          case _ =>
+        }
+      }
+      println(s"successful operations: $successCounter of $operationLimit")
+    }
+
+    println("seed: " + seed)
+
+    println("fs size " + fs.size)
+
+//    println(fs.toJson)
+
+    def randomFastPathWithError = fs.synchronized {
+      val RandomId = Random.nextInt(fs.size)
+      fs.pathOf(RandomId).getOrElse("") + (if (Random.nextDouble() < 0.001) "a" else "")
+    }
+
     def randomPathWithError = fs.synchronized {
       val idSet = fs.idSet
-      val index = idSet.iterator.drop(Random.nextInt(idSet.size)).next
-      fs.pathOf(index).getOrElse("") + (if (Random.nextDouble() < 0.001) "a" else "")
+      val RandomId = idSet.toArray.apply(Random.nextInt(fs.size))
+      fs.pathOf(RandomId).getOrElse("") + (if (Random.nextDouble() < 0.001) "a" else "")
+    }
+
+    def randomFastPath = fs.synchronized {
+      val RandomId = Random.nextInt(fs.size)
+      fs.pathOf(RandomId).getOrElse("")
+    }
+
+    def randomPath = fs.synchronized {
+      val idSet = fs.idSet
+      val RandomId = idSet.toArray.apply(Random.nextInt(fs.size))
+      fs.pathOf(RandomId).getOrElse("")
     }
 
     def timed[R](block: => R): R = {
@@ -59,41 +132,6 @@ object Main extends App with Logging {
       println("Elapsed time: " + dur.toString.stripPrefix("PT"))
       result
     }
-
-    val sizeLimit = 10000
-    val operationLimit = 1000000
-
-    while (fs.size < sizeLimit) {
-      val path = randomPathWithError
-
-      fs.create(path, lorem.getWords(1), Some(lorem.getWords(10, 20)))
-    }
-
-    timed {
-      1 to operationLimit foreach { iteration =>
-
-        if (iteration % (operationLimit / 10) == 0) println(iteration.toDouble / operationLimit * 100 + "%")
-
-        val path = randomPathWithError
-        val dest = randomPathWithError
-
-        Random.nextInt(5) match {
-          case 0 => if (fs.size < sizeLimit) fs.create(path, lorem.getWords(1), None)
-          case 1 => fs.rename(path, lorem.getWords(1))
-          case 2 => fs.move(path, dest)
-          case 3 => if (fs.size > sizeLimit / 2) fs.delete(path)
-          case 4 => fs.edit(path, Some(lorem.getWords(10, 20)))
-        }
-      }
-    }
-
-    println("seed: " + seed)
-
-    logger.info("giving actor time to finish")
-    Thread.sleep(2000)
-    logger.info("thats been enough time")
-
-    println(fs.toJson)
   }
 
 

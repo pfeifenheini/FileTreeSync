@@ -2,7 +2,9 @@ package de.treufuss.filesync.filesystem
 
 import org.apache.logging.log4j.scala.Logging
 
+import scala.annotation.tailrec
 import scala.collection.mutable
+import scala.collection.mutable.ListBuffer
 
 
 class Node[C](val id: Int,
@@ -18,9 +20,18 @@ class Node[C](val id: Int,
       case _ :: tail => children.get(tail.head).flatMap(_.find(tail))
     }
 
-  def pathNodes: Seq[Node[C]] = parent match {
-    case None => Seq(this)
-    case Some(p) => p.pathNodes :+ this
+  private def nodesToRootRec(currentNode: Node[C], nodesSoFar: ListBuffer[Node[C]]): Unit = {
+    nodesSoFar.prepend(currentNode)
+    currentNode.parent match {
+      case None =>
+      case Some(p) => nodesToRootRec(p, nodesSoFar)
+    }
+  }
+
+  def nodesToRoot: List[Node[C]] = {
+    val list = ListBuffer.empty[Node[C]]
+    nodesToRootRec(this, list)
+    list.toList
   }
 
   def nodesPreOrder: Seq[Node[C]] = {
@@ -49,7 +60,7 @@ class Node[C](val id: Int,
     s"""{"id":$id,"name":"$name"$contentPara$childrenArray}"""
   }
 
-  override def toString: String = pathNodes.map(_.name).mkString("/")
+  override def toString: String = nodesToRoot.map(_.name).mkString("/")
 }
 
 object Node {

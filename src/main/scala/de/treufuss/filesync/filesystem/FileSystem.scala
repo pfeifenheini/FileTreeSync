@@ -13,11 +13,15 @@ trait FileSystem[C] {
 
   def idSet: Set[Int]
 
+  def create(path: String, name: String, content: C): Boolean = create(path, name, Some(content))
+
   def create(path: String, name: String, content: Option[C] = None): Boolean
 
   def delete(path: String): Boolean
 
   def move(path: String, dest: String): Boolean
+
+  def edit(path: String, newContent: C): Boolean = edit(path, Some(newContent))
 
   def edit(path: String, newContent: Option[C]): Boolean
 
@@ -107,7 +111,7 @@ class FileSystemImpl[C](config: FileSystemConf) extends FileSystem[C] with Loggi
           logger.error("cannot move root node")
           false
         }
-        else if (destNode.pathNodes.exists(_.id == sourceNode.id)) {
+        else if (destNode.nodesToRoot.exists(_.id == sourceNode.id)) {
           logger.error(s"cannot move node '${sourceNode.name}' into a sub node '$dest'")
           false
         }
@@ -159,8 +163,10 @@ class FileSystemImpl[C](config: FileSystemConf) extends FileSystem[C] with Loggi
           case Some(parent) if parent.children.contains(newName) =>
             logger.error(s"cannot rename '$path' to $newName, name already taken")
             false
-          case _ =>
+          case Some(parent) =>
+            parent.children.remove(node.name)
             node.name = newName
+            parent.children.update(node.name, node)
             logger.info(s"rename node '$path' to $newName")
             true
         }
@@ -178,7 +184,7 @@ class FileSystemImpl[C](config: FileSystemConf) extends FileSystem[C] with Loggi
 
   private def find(id: Int): Option[Node[C]] = nodeIndex.get(id)
 
-  private def pathOf(node: Node[C]): String = node.pathNodes.map(_.name).mkString(config.pathSeparator.toString)
+  private def pathOf(node: Node[C]): String = node.nodesToRoot.map(_.name).mkString(config.pathSeparator.toString)
 
   override def pathOf(id: Int): Option[String] = this.synchronized {
     find(id) match {
@@ -189,5 +195,5 @@ class FileSystemImpl[C](config: FileSystemConf) extends FileSystem[C] with Loggi
 
   override def toJson: String = this.synchronized(root.toJson)
 
-  override def toString: String = root.nodesPreOrder.map(node => pathOf(node) + " " + node.content.getOrElse("").toString).mkString("\n")
+  override def toString: String = root.nodesPreOrder.map(node => pathOf(node) + "   " + node.content.getOrElse("").toString).mkString("\n")
 }

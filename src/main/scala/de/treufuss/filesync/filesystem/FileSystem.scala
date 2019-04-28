@@ -104,10 +104,10 @@ class FileSystemImpl[C](config: FileSystemConf) extends FileSystem[C] with Loggi
     }
   }
 
-  override def move(source: String, dest: String): Boolean = this.synchronized {
-    (find(source), find(dest)) match {
+  override def move(path: String, dest: String): Boolean = this.synchronized {
+    (find(path), find(dest)) match {
       case (None, _) =>
-        logger.error(s"cannot move, source '$source' does not exist")
+        logger.error(s"cannot move, source '$path' does not exist")
         false
       case (_, None) =>
         logger.error(s"cannot move, destination '$dest' does not exist")
@@ -124,15 +124,14 @@ class FileSystemImpl[C](config: FileSystemConf) extends FileSystem[C] with Loggi
         else
           destNode.children.find(_.name == sourceNode.name) match {
             case Some(_) =>
-              logger.error(s"cannot move '$source' to '$dest', child with same name already exists")
+              logger.error(s"cannot move '$path' to '$dest', child with same name already exists")
               false
             case None =>
               val removeFrom = sourceNode.parent.get.children
               removeFrom.remove(removeFrom.indexWhere(_.id == sourceNode.id))
-
               destNode.children += sourceNode
               sourceNode.parent = Some(destNode)
-              logger.info(s"move node '$source' to '$dest'")
+              logger.info(s"move node '$path' to '$dest'")
               true
           }
     }

@@ -2,7 +2,6 @@ package de.treufuss.filesync.filesystem
 
 import org.apache.logging.log4j.scala.Logging
 
-import scala.annotation.tailrec
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 
@@ -16,9 +15,10 @@ class Node[C](val id: Int,
   def find(nameSeq: Seq[String]): Option[Node[C]] = find(nameSeq.toList)
 
   def find(nameList: List[String]): Option[Node[C]] = nameList match {
-      case head :: Nil => if (head == name) Some(this) else None
-      case _ :: tail => children.get(tail.head).flatMap(_.find(tail))
-    }
+    case head :: Nil => if (head == name) Some(this) else None
+    case _ :: tail => children.get(tail.head).flatMap(_.find(tail))
+    case Nil => None
+  }
 
   private def nodesToRootRec(currentNode: Node[C], nodesSoFar: ListBuffer[Node[C]]): Unit = {
     nodesSoFar.prepend(currentNode)

@@ -6,6 +6,8 @@ import com.thedeanda.lorem.LoremIpsum
 import de.treufuss.filesync.filesystem.{FileSystem, FileSystemConf}
 import org.apache.logging.log4j.scala.Logging
 
+import scala.collection.mutable
+import scala.collection.mutable.ArrayBuffer
 import scala.util.Random
 
 object Main extends App with Logging {
@@ -56,16 +58,32 @@ object Main extends App with Logging {
     val lorem = new LoremIpsum(seed)
 
     val sizeLimit = 100000
-    val operationLimit = 1000000
+    val operationLimit = 100000
 
-    var createIteration = 0
+    object RandomPath {
+
+      private val fillSize = 1000
+
+      private val q = mutable.Queue.empty[String]
+
+      def next: String = {
+        if(q.isEmpty) refill()
+        q.dequeue()
+      }
+
+      def refill(): Unit =  {
+        val (idArray, size) = (fs.idSet.toArray, fs.size)
+        1 to fillSize flatMap(_ => fs.pathOf(idArray(Random.nextInt(size)))) foreach(q.enqueue(_))
+      }
+    }
 
     println(s"fill file system with $sizeLimit nodes")
+    var createIteration = 0
     while (fs.size < sizeLimit) {
 
-      if (createIteration % (operationLimit / 10) == 0) println(createIteration.toDouble / sizeLimit * 100 + "%")
+      if (createIteration % (sizeLimit / 10) == 0) println(createIteration.toDouble / sizeLimit * 100 + "%")
 
-      val path = randomFastPath
+      val path = RandomPath.next
 
       fs.create(path, lorem.getWords(1), Some(lorem.getWords(10, 20)))
 
@@ -76,23 +94,24 @@ object Main extends App with Logging {
 
     timed {
       var successCounter = 0
+      val successArray = ArrayBuffer.fill(5)(0)
       1 to operationLimit foreach { iteration =>
 
         if (iteration % (operationLimit / 10) == 0) println(iteration.toDouble / operationLimit * 100 + "%")
 
-        val path = randomFastPathWithError
-        val dest = randomFastPathWithError
+        val path = RandomPath.next
+        val dest = RandomPath.next
 
         Random.nextInt(5) match {
-//          case 0 => if (fs.size < sizeLimit) fs.create(path, lorem.getWords(1), None)
-          case 1 => if (fs.rename(path, lorem.getWords(1))) successCounter += 1
-          case 2 => if (fs.move(path, dest)) successCounter += 1
-//          case 3 => if (fs.size > sizeLimit / 2) fs.delete(path)
-          case 4 => if (fs.edit(path, Some(lorem.getWords(10, 20)))) successCounter += 1
+          case 0 => if (fs.size < sizeLimit) if (fs.create(path, lorem.getWords(1), None)) successArray(0) += 1
+          case 1 => if (fs.rename(path, lorem.getWords(1))) successArray(1) += 1
+          case 2 => if (fs.move(path, dest)) successArray(2) += 1
+          case 3 => if (fs.size > sizeLimit / 2) if (fs.delete(path)) successArray(3) += 1
+          case 4 => if (fs.edit(path, Some(lorem.getWords(10, 20)))) successArray(4) += 1
           case _ =>
         }
       }
-      println(s"successful operations: $successCounter of $operationLimit")
+      println(s"successful operations: $successArray")
     }
 
     println("seed: " + seed)
@@ -101,23 +120,23 @@ object Main extends App with Logging {
 
 //    println(fs.toJson)
 
-    def randomFastPathWithError = fs.synchronized {
+    def randomFastPathWithError = {
       val RandomId = Random.nextInt(fs.size)
       fs.pathOf(RandomId).getOrElse("") + (if (Random.nextDouble() < 0.001) "a" else "")
     }
 
-    def randomPathWithError = fs.synchronized {
+    def randomPathWithError = {
       val idSet = fs.idSet
       val RandomId = idSet.toArray.apply(Random.nextInt(fs.size))
       fs.pathOf(RandomId).getOrElse("") + (if (Random.nextDouble() < 0.001) "a" else "")
     }
 
-    def randomFastPath = fs.synchronized {
+    def randomFastPath = {
       val RandomId = Random.nextInt(fs.size)
       fs.pathOf(RandomId).getOrElse("")
     }
 
-    def randomPath = fs.synchronized {
+    def randomPath = {
       val idSet = fs.idSet
       val RandomId = idSet.toArray.apply(Random.nextInt(fs.size))
       fs.pathOf(RandomId).getOrElse("")
@@ -133,8 +152,5 @@ object Main extends App with Logging {
       result
     }
   }
-
-
-
 
 }

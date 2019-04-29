@@ -56,11 +56,11 @@ class FileSystemImpl[C](config: FileSystemConf) extends FileSystem[C] with Loggi
 
   private val nodeIndex = mutable.TreeMap(0 -> root)
 
-  override def size: Int = this.synchronized(nodeIndex.size)
+  override def size: Int = nodeIndex.size
 
-  override def idSet: Set[Int] = this.synchronized(nodeIndex.keySet)
+  override def idSet: Set[Int] = nodeIndex.keySet
 
-  override def create(path: String, name: String, content: Option[C] = None): Boolean = this.synchronized {
+  override def create(path: String, name: String, content: Option[C] = None): Boolean = {
     find(path) match {
       case None =>
         logger.error(s"cannot create, '$path' does not exist")
@@ -79,7 +79,7 @@ class FileSystemImpl[C](config: FileSystemConf) extends FileSystem[C] with Loggi
     }
   }
 
-  override def delete(path: String): Boolean = this.synchronized {
+  override def delete(path: String): Boolean = {
     find(path) match {
       case None =>
         logger.error(s"cannot delete, '$path' does not exist")
@@ -98,7 +98,7 @@ class FileSystemImpl[C](config: FileSystemConf) extends FileSystem[C] with Loggi
     }
   }
 
-  override def move(path: String, dest: String): Boolean = this.synchronized {
+  override def move(path: String, dest: String): Boolean = {
     (find(path), find(dest)) match {
       case (None, _) =>
         logger.error(s"cannot move, source '$path' does not exist")
@@ -130,7 +130,7 @@ class FileSystemImpl[C](config: FileSystemConf) extends FileSystem[C] with Loggi
     }
   }
 
-  override def edit(path: String, newContent: Option[C]): Boolean = this.synchronized {
+  override def edit(path: String, newContent: Option[C]): Boolean = {
     find(path) match {
       case Some(node) =>
         logger.info(s"edit node '$path'")
@@ -142,7 +142,7 @@ class FileSystemImpl[C](config: FileSystemConf) extends FileSystem[C] with Loggi
     }
   }
 
-  override def rename(path: String, newName: String): Boolean = this.synchronized {
+  override def rename(path: String, newName: String): Boolean = {
 
     if (newName == "") {
       logger.error("cannot rename, name cannot be empty string")
@@ -186,14 +186,14 @@ class FileSystemImpl[C](config: FileSystemConf) extends FileSystem[C] with Loggi
 
   private def pathOf(node: Node[C]): String = node.nodesToRoot.map(_.name).mkString(config.pathSeparator.toString)
 
-  override def pathOf(id: Int): Option[String] = this.synchronized {
+  override def pathOf(id: Int): Option[String] = {
     find(id) match {
       case Some(node) => Some(pathOf(node))
       case None => None
     }
   }
 
-  override def toJson: String = this.synchronized(root.toJson)
+  override def toJson: String = root.toJson
 
   override def toString: String = root.nodesPreOrder.map(node => pathOf(node) + "   " + node.content.getOrElse("").toString).mkString("\n")
 }

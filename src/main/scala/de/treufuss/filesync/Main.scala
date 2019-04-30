@@ -19,7 +19,7 @@ object Main extends App with Logging {
     rootName = "root"
   )
 
-//  miniTest
+  //  miniTest
 
   benchmark
 
@@ -41,15 +41,14 @@ object Main extends App with Logging {
     println(fs)
     fs.delete("root/b")
     println(fs)
-
   }
 
   def benchmark = {
 
     logger.info("start benchmark")
 
-    //  val seed = Random.nextLong()
-    val seed = 0L
+    val seed = Random.nextLong()
+    //    val seed = 0L
 
     Random.setSeed(seed)
 
@@ -57,23 +56,23 @@ object Main extends App with Logging {
 
     val lorem = new LoremIpsum(seed)
 
-    val sizeLimit = 100000
+    val sizeLimit = 1000
     val operationLimit = 100000
 
     object RandomPath {
 
-      private val fillSize = 1000
+      private val fillSize = math.max(fs.size / 100, 10)
 
       private val q = mutable.Queue.empty[String]
 
       def next: String = {
-        if(q.isEmpty) refill()
+        if (q.isEmpty) refill()
         q.dequeue()
       }
 
-      def refill(): Unit =  {
+      def refill(): Unit = {
         val (idArray, size) = (fs.idSet.toArray, fs.size)
-        1 to fillSize flatMap(_ => fs.pathOf(idArray(Random.nextInt(size)))) foreach(q.enqueue(_))
+        1 to fillSize flatMap (_ => fs.pathOf(idArray(Random.nextInt(size)))) foreach (q.enqueue(_))
       }
     }
 
@@ -81,7 +80,8 @@ object Main extends App with Logging {
     var createIteration = 0
     while (fs.size < sizeLimit) {
 
-      if (createIteration % (sizeLimit / 10) == 0) println(createIteration.toDouble / sizeLimit * 100 + "%")
+      if (createIteration % (sizeLimit / 10) == 0) println(
+        createIteration.toDouble / sizeLimit * 100 + "% - node count: " + fs.size)
 
       val path = RandomPath.next
 
@@ -90,57 +90,72 @@ object Main extends App with Logging {
       createIteration += 1
     }
 
+    //    println(fs.toJson)
+
     println(s"benchmarking $operationLimit operations")
 
     timed {
       var successCounter = 0
       val successArray = ArrayBuffer.fill(5)(0)
+      val totalArray = ArrayBuffer.fill(5)(0)
       1 to operationLimit foreach { iteration =>
 
-        if (iteration % (operationLimit / 10) == 0) println(iteration.toDouble / operationLimit * 100 + "%")
+        if (iteration % (operationLimit / 10) == 0) println(
+          iteration.toDouble / operationLimit * 100 + "% - node count: " + fs.size)
 
         val path = RandomPath.next
         val dest = RandomPath.next
 
         Random.nextInt(5) match {
-          case 0 => if (fs.size < sizeLimit) if (fs.create(path, lorem.getWords(1), None)) successArray(0) += 1
-          case 1 => if (fs.rename(path, lorem.getWords(1))) successArray(1) += 1
-          case 2 => if (fs.move(path, dest)) successArray(2) += 1
-          case 3 => if (fs.size > sizeLimit / 2) if (fs.delete(path)) successArray(3) += 1
-          case 4 => if (fs.edit(path, Some(lorem.getWords(10, 20)))) successArray(4) += 1
+          case 0 =>
+            totalArray(0) += 1
+            if (fs.size < sizeLimit) {
+              if (fs.create(path, lorem.getWords(1), None))
+                successArray(0) += 1
+            }
+          case 1 =>
+            totalArray(1) += 1
+            if (fs.rename(path, lorem.getWords(1)))
+              successArray(1) += 1
+          case 2 =>
+            totalArray(2) += 1
+            if (fs.move(path, dest))
+              successArray(2) += 1
+          case 3 =>
+            totalArray(3) += 1
+            if (fs.size > sizeLimit / 2) {
+              if (fs.delete(path))
+                successArray(3) += 1
+            }
+          case 4 =>
+            totalArray(4) += 1
+            if (fs.edit(path, Some(lorem.getWords(10, 20))))
+              successArray(4) += 1
           case _ =>
         }
       }
-      println(s"successful operations: $successArray")
+
+      val opNames = Array("create", "rename", "move", "delete", "edit")
+      val stats = opNames.zip(totalArray.zip(successArray)).map {
+        case (name, (total, success)) => (name, total, success, total - success)
+      } map {
+        case (name, total, success, fail) => "%10s | %10d | %10d | %10d".format(name, total, success, fail)
+      }
+
+      println("%10s | %10s | %10s | %10s".format("operation", "total", "success", "failure"))
+      println("%10s | %10s | %10s | %10s".format("----------", "----------", "----------", "----------"))
+      println(stats.mkString("\n"))
+
+      //      println(s"total operations: $totalArray")
+      //      println(s"successful operations: $successArray")
+      //      println(s"failed operations: ${totalArray.zip(successArray).map(t => t._1 - t._2)}")
     }
 
     println("seed: " + seed)
 
     println("fs size " + fs.size)
 
-//    println(fs.toJson)
-
-    def randomFastPathWithError = {
-      val RandomId = Random.nextInt(fs.size)
-      fs.pathOf(RandomId).getOrElse("") + (if (Random.nextDouble() < 0.001) "a" else "")
-    }
-
-    def randomPathWithError = {
-      val idSet = fs.idSet
-      val RandomId = idSet.toArray.apply(Random.nextInt(fs.size))
-      fs.pathOf(RandomId).getOrElse("") + (if (Random.nextDouble() < 0.001) "a" else "")
-    }
-
-    def randomFastPath = {
-      val RandomId = Random.nextInt(fs.size)
-      fs.pathOf(RandomId).getOrElse("")
-    }
-
-    def randomPath = {
-      val idSet = fs.idSet
-      val RandomId = idSet.toArray.apply(Random.nextInt(fs.size))
-      fs.pathOf(RandomId).getOrElse("")
-    }
+    //    println(fs.toJson)
 
     def timed[R](block: => R): R = {
       val t0 = System.nanoTime()
@@ -152,5 +167,4 @@ object Main extends App with Logging {
       result
     }
   }
-
 }
